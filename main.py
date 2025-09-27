@@ -11,6 +11,7 @@ FONT_INSTRUCTIONS = ("Ariel", 24, "bold")
 CARD_HEIGHT = 526
 CARD_WIDTH = 800
 CARD_DATA_FILE = "./data/card_data.csv"
+CARD_DATA_TO_LEARN_FILE = "./data/card_data_to_learn.csv"
 COUNTDOWN_TIMER_IN_SEC = 3
 
 # ----------------------------- WORDS --------------------------------- #
@@ -20,7 +21,13 @@ HEADER_ANSWER = ""
 
 def load_cards_via_pandas():
     '''load the questions and answer pairs from the card data file using pandas'''
-    retval = pandas.read_csv(CARD_DATA_FILE)
+    try:
+        retval = pandas.read_csv(CARD_DATA_TO_LEARN_FILE)
+    except FileNotFoundError:
+        try:
+            retval = pandas.read_csv(CARD_DATA_FILE)
+        except FileNotFoundError:
+            print(f"Unable to load contents from {CARD_DATA_FILE}")
 
     columns = retval.columns.tolist()
     global HEADER_QUESTION
@@ -32,8 +39,15 @@ def load_cards_via_pandas():
 
 def load_cards_as_file():
     '''load the questions and answer pairs from the card data file using a straight file interface'''
-    with open(CARD_DATA_FILE, "r") as file_words:
-        words = file_words.readlines()
+    try:
+        with open(CARD_DATA_TO_LEARN_FILE, "r") as file_words:
+            words = file_words.readlines()
+    except FileNotFoundError:
+        try:
+            with open(CARD_DATA_FILE, "r") as file_words:
+                words = file_words.readlines()
+        except FileNotFoundError:
+            print(f"Unable to load contents from {CARD_DATA_FILE}")
 
     header = words.pop(0).strip().split(sep=",")
     global HEADER_QUESTION
@@ -87,14 +101,28 @@ label_word = canvas_card.create_text(int(CARD_WIDTH/2), int(CARD_HEIGHT/2), text
 
 # create the right button
 def right_button_clicked():
+    global current_card
+
+    # if a card is displayed and this right button was clicked, remove the item from the list of words to learn
+    if len(current_card) != 0:
+        flashcard_bank.remove(current_card)
+        df_remaining_words = pandas.DataFrame.from_dict(data=flashcard_bank)
+        df_remaining_words.to_csv(CARD_DATA_TO_LEARN_FILE, index=False)
+        print(f"removed card from deck {HEADER_QUESTION} with {current_card[HEADER_QUESTION]}")
     display_random_card()
+
+
 image_right = PhotoImage(file="./images/right.png")
 button_right = tkinter.Button(image=image_right, bg=BACKGROUND_COLOR, highlightthickness=0, command=right_button_clicked)
 button_right.grid(row=2, column=0)
 
 # create the wrong button
 def wrong_button_clicked():
-    pass
+    global current_card
+    if len(current_card) > 0:
+        print(f"kept current card: {HEADER_QUESTION} with {current_card[HEADER_QUESTION]}")
+        display_random_card()
+
 image_wrong = PhotoImage(file="./images/wrong.png")
 button_wrong = tkinter.Button(image=image_wrong, highlightthickness=0, command=wrong_button_clicked)
 button_wrong.grid(row=2, column=1)
